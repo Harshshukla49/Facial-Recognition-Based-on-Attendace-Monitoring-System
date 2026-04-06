@@ -1,5 +1,1 @@
-<<<<<<< HEAD
 shukla
-=======
-shukla
->>>>>>> 9ee10132433aab7c864fdaa06fc2b945dec0ea09
