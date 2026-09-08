@@ -43,6 +43,8 @@ class EnterpriseAttendancePlatform {
         this.initModals();
         this.initAIAssistant();
         this.initRegistrationWizard();
+        this.initAttendanceManagement();
+        this.initSettings();
         this.loadDashboardMetrics();
         this.loadTodayAttendance();
         this.loadSessions();
@@ -176,8 +178,6 @@ class EnterpriseAttendancePlatform {
         if (formOverride) {
             formOverride.onsubmit = async (e) => {
                 e.preventDefault();
-                if (!this.selectedRecordId) return;
-
                 const newStatus = document.getElementById('overrideStatus').value;
                 const reason = document.getElementById('overrideReason').value.trim();
 
@@ -191,7 +191,9 @@ class EnterpriseAttendancePlatform {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            record_id: this.selectedRecordId,
+                            record_id: this.selectedRecordId || 0,
+                            student_id: this.selectedStudentId || '',
+                            date: this.selectedDate || '',
                             new_status: newStatus,
                             reason: reason
                         })
@@ -202,6 +204,8 @@ class EnterpriseAttendancePlatform {
                         modalOverride.classList.remove('active');
                         this.loadTodayAttendance();
                         this.loadDashboardMetrics();
+                        const datePicker = document.getElementById('attendanceDatePicker');
+                        if (datePicker) this.loadAttendanceRecords(datePicker.value);
                     } else {
                         this.showToast(data.message || 'Error updating record', 'error');
                     }
@@ -682,6 +686,276 @@ class EnterpriseAttendancePlatform {
         }
     }
 
+    initAttendanceManagement() {
+        const picker = document.getElementById('attendanceDatePicker');
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        const todayStr = `${yyyy}-${mm}-${dd}`;
+
+        if (picker) {
+            picker.value = todayStr;
+            picker.addEventListener('change', (e) => {
+                this.loadAttendanceRecords(e.target.value);
+            });
+        }
+
+        // Status Filter Buttons
+        const filterBtns = document.querySelectorAll('.filter-status-btn');
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.currentAttendanceFilter = btn.dataset.filter || 'ALL';
+                this.renderAttendanceTable();
+            });
+        });
+
+        // Search Input
+        const searchInput = document.getElementById('searchAttendanceInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                this.searchAttendanceQuery = e.target.value.toLowerCase().trim();
+                this.renderAttendanceTable();
+            });
+        }
+
+        // Excel & CSV Export Buttons
+        const btnExcel = document.getElementById('btnExportExcelMain');
+        if (btnExcel) {
+            btnExcel.addEventListener('click', () => {
+                const dateVal = picker ? picker.value : todayStr;
+                window.location.href = `/api/reports/export/excel?date=${dateVal}`;
+                this.showToast('📥 Downloading Attendance Excel (.xlsx) file...', 'info');
+            });
+        }
+
+        const btnCSV = document.getElementById('btnExportCSVMain');
+        if (btnCSV) {
+            btnCSV.addEventListener('click', () => {
+                const dateVal = picker ? picker.value : todayStr;
+                window.location.href = `/api/reports/export/csv?date=${dateVal}`;
+                this.showToast('📥 Downloading Attendance CSV file...', 'info');
+            });
+        }
+
+        // Search students directory input
+        const searchStudents = document.getElementById('searchStudentsInput');
+        if (searchStudents) {
+            searchStudents.addEventListener('input', (e) => {
+                const q = e.target.value.toLowerCase().trim();
+                document.querySelectorAll('#studentsDirectoryBody tr').forEach(tr => {
+                    tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+                });
+            });
+        }
+
+        this.currentAttendanceFilter = 'ALL';
+        this.searchAttendanceQuery = '';
+        this.attendanceRecords = [];
+        this.loadAttendanceRecords(todayStr);
+    }
+
+    async loadAttendanceRecords(dateStr) {
+        try {
+            const tbody = document.getElementById('attendanceRecordsBody');
+            if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: var(--text-dim); padding: 2rem;">Loading attendance roster from database...</td></tr>`;
+
+            const res = await fetch(`/api/attendance/records?date=${dateStr}`);
+            const data = await res.json();
+
+            if (data.status === 'success' && data.records) {
+                this.attendanceRecords = data.records;
+                this.renderAttendanceTable();
+            } else {
+                if (tbody) tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: var(--text-dim); padding: 2rem;">No student records found.</td></tr>`;
+            }
+        } catch (err) {
+            console.error('Attendance load error:', err);
+        }
+    }
+
+    renderAttendanceTable() {
+        const tbody = document.getElementById('attendanceRecordsBody');
+        if (!tbody) return;
+
+        let filtered = this.attendanceRecords;
+
+        if (this.currentAttendanceFilter && this.currentAttendanceFilter !== 'ALL') {
+            filtered = filtered.filter(r => r.status === this.currentAttendanceFilter);
+        }
+
+        if (this.searchAttendanceQuery) {
+            filtered = filtered.filter(r => 
+                (r.student_name && r.student_name.toLowerCase().includes(this.searchAttendanceQuery)) ||
+                (r.student_id && r.student_id.toLowerCase().includes(this.searchAttendanceQuery)) ||
+                (r.class_name && r.class_name.toLowerCase().includes(this.searchAttendanceQuery))
+            );
+        }
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="12" style="text-align: center; color: var(--text-dim); padding: 2.5rem;">No matching attendance records found.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = '';
+        filtered.forEach(r => {
+            const tr = document.createElement('tr');
+            let badgeClass = 'badge-absent';
+            if (r.status === 'PRESENT') badgeClass = 'badge-present';
+            else if (r.status === 'LATE') badgeClass = 'badge-late';
+            else if (r.status === 'HALF_DAY') badgeClass = 'badge-halfday';
+            else if (r.status === 'EXCUSED') badgeClass = 'badge-present';
+
+            const initials = (r.student_name || 'ST').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+            tr.innerHTML = `
+                <td>
+                    <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; color: #fff;">
+                        ${initials}
+                    </div>
+                </td>
+                <td><strong>${r.student_id}</strong></td>
+                <td>${r.student_name}</td>
+                <td>${r.class_name || 'CSE-A'}</td>
+                <td>${r.department_name || 'CSE'}</td>
+                <td>${r.date}</td>
+                <td>${r.first_entry || r.time || '—'}</td>
+                <td>${r.last_exit || '—'}</td>
+                <td><span class="status-badge ${badgeClass}">${r.status}</span></td>
+                <td><span style="font-size: 0.8rem; color: var(--text-muted);">${r.method || '—'}</span></td>
+                <td>${r.confidence || '—'}</td>
+                <td>
+                    <div style="display: flex; gap: 0.35rem;">
+                        <button class="btn btn-secondary btn-sm" onclick='window.app.openStudentDetailModal(${JSON.stringify(r).replace(/'/g, "&#39;")})'>
+                            👁️ Detail
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="window.app.openOverrideModal(${r.record_id || 0}, '${r.student_id}', '${r.date}', '${r.status}', '${r.student_name}')">
+                            ✏️ Correct
+                        </button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    openStudentDetailModal(r) {
+        const modal = document.getElementById('modalStudentDetail');
+        if (!modal) return;
+
+        const initials = (r.student_name || 'ST').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+        document.getElementById('detailAvatar').textContent = initials;
+        document.getElementById('detailStudentName').textContent = r.student_name;
+        document.getElementById('detailStudentID').textContent = `ID: ${r.student_id}`;
+        document.getElementById('detailClass').textContent = r.class_name || 'CSE-A';
+        document.getElementById('detailDept').textContent = r.department_name || 'Computer Science';
+        document.getElementById('detailDate').textContent = r.date;
+        document.getElementById('detailEntryTime').textContent = r.first_entry || r.time || '—';
+        document.getElementById('detailMethod').textContent = r.method || '—';
+        document.getElementById('detailConfidence').textContent = r.confidence || '—';
+        document.getElementById('detailLiveness').textContent = r.liveness || '—';
+        document.getElementById('detailKiosk').textContent = r.kiosk || 'Kiosk 01 — Main Entrance';
+
+        const badge = document.getElementById('detailStatusBadge');
+        if (badge) {
+            badge.textContent = r.status;
+            badge.className = `status-badge ${r.status === 'PRESENT' ? 'badge-present' : (r.status === 'LATE' ? 'badge-late' : 'badge-absent')}`;
+        }
+
+        const overrideBox = document.getElementById('detailOverrideContainer');
+        const reasonSpan = document.getElementById('detailOverrideReason');
+        if (r.override_reason && r.override_reason.trim()) {
+            if (overrideBox) overrideBox.style.display = 'block';
+            if (reasonSpan) reasonSpan.textContent = r.override_reason;
+        } else {
+            if (overrideBox) overrideBox.style.display = 'none';
+        }
+
+        modal.classList.add('active');
+    }
+
+    openOverrideModal(recordId, studentId, dateStr, currentStatus, studentName) {
+        this.selectedRecordId = recordId;
+        this.selectedStudentId = studentId;
+        this.selectedDate = dateStr;
+
+        const modal = document.getElementById('modalOverride');
+        const title = document.getElementById('overrideStudentTitle');
+        const statusSelect = document.getElementById('overrideStatus');
+        const reasonInput = document.getElementById('overrideReason');
+
+        if (title) title.textContent = `Manual Correction: ${studentName} (${studentId})`;
+        if (statusSelect) statusSelect.value = currentStatus === 'ABSENT' ? 'PRESENT' : currentStatus;
+        if (reasonInput) reasonInput.value = '';
+
+        if (modal) modal.classList.add('active');
+    }
+
+    async initSettings() {
+        const form = document.getElementById('formAttendanceSettings');
+        if (!form) return;
+
+        // Load existing settings
+        try {
+            const res = await fetch('/api/settings');
+            const data = await res.json();
+            if (data.status === 'success' && data.settings) {
+                const s = data.settings;
+                const startTime = document.getElementById('settingStartTime');
+                const grace = document.getElementById('settingGracePeriod');
+                const late = document.getElementById('settingLateCutoff');
+                const cooldown = document.getElementById('settingCooldown');
+                const thresh = document.getElementById('settingThreshold');
+                const autoMark = document.getElementById('settingAutoMark');
+                const liveness = document.getElementById('settingLiveness');
+                const manual = document.getElementById('settingManualFallback');
+
+                if (startTime && s.start_time) startTime.value = s.start_time;
+                if (grace && s.grace_period_mins) grace.value = s.grace_period_mins;
+                if (late && s.late_cutoff_mins) late.value = s.late_cutoff_mins;
+                if (cooldown && s.duplicate_cooldown_secs) cooldown.value = s.duplicate_cooldown_secs;
+                if (thresh && s.confidence_threshold) thresh.value = s.confidence_threshold;
+                if (autoMark) autoMark.checked = s.auto_mark === '1' || s.auto_mark === true;
+                if (liveness) liveness.checked = s.liveness_enabled === '1' || s.liveness_enabled === true;
+                if (manual) manual.checked = s.manual_fallback_enabled === '1' || s.manual_fallback_enabled === true;
+            }
+        } catch (err) {
+            console.error('Error loading settings:', err);
+        }
+
+        // Save settings handler
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                start_time: document.getElementById('settingStartTime').value,
+                grace_period_mins: document.getElementById('settingGracePeriod').value,
+                late_cutoff_mins: document.getElementById('settingLateCutoff').value,
+                duplicate_cooldown_secs: document.getElementById('settingCooldown').value,
+                confidence_threshold: document.getElementById('settingThreshold').value,
+                auto_mark: document.getElementById('settingAutoMark').checked ? '1' : '0',
+                liveness_enabled: document.getElementById('settingLiveness').checked ? '1' : '0',
+                manual_fallback_enabled: document.getElementById('settingManualFallback').checked ? '1' : '0'
+            };
+
+            try {
+                const res = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    this.showToast('✅ Attendance settings updated successfully.', 'success');
+                }
+            } catch (err) {
+                this.showToast('❌ Failed to save settings.', 'danger');
+            }
+        });
+    }
+
     async loadTodayAttendance() {
         try {
             const res = await fetch('/api/attendance/records');
@@ -694,17 +968,17 @@ class EnterpriseAttendancePlatform {
                 tbody.innerHTML = '';
                 data.records.forEach((r, idx) => {
                     const tr = document.createElement('tr');
-                    const badgeClass = r.status === 'PRESENT' ? 'badge-present' : (r.status === 'LATE' ? 'badge-late' : 'badge-halfday');
+                    const badgeClass = r.status === 'PRESENT' ? 'badge-present' : (r.status === 'LATE' ? 'badge-late' : 'badge-absent');
                     
                     tr.innerHTML = `
                         <td><strong>${r.student_id}</strong></td>
                         <td>${r.student_name || 'Student'}</td>
                         <td>${r.class_name || 'General'}</td>
                         <td><span class="status-badge ${badgeClass}">${r.status}</span></td>
-                        <td>${r.time}</td>
-                        <td>${r.confidence ? r.confidence.toFixed(1) + '%' : '98.0%'}</td>
+                        <td>${r.first_entry || r.time || '—'}</td>
+                        <td>${r.confidence || '98.0%'}</td>
                         <td>
-                            <button class="btn btn-secondary btn-sm" onclick="window.app.openOverrideModal(${r.id}, '${r.status}', '${r.student_name}')">
+                            <button class="btn btn-secondary btn-sm" onclick="window.app.openOverrideModal(${r.record_id || 0}, '${r.student_id}', '${r.date}', '${r.status}', '${r.student_name}')">
                                 ✏️ Correct
                             </button>
                         </td>
@@ -719,57 +993,6 @@ class EnterpriseAttendancePlatform {
         }
     }
 
-    openOverrideModal(recordId, currentStatus, studentName) {
-        this.selectedRecordId = recordId;
-        const modal = document.getElementById('modalOverride');
-        const title = document.getElementById('overrideStudentTitle');
-        const statusSelect = document.getElementById('overrideStatus');
-        const reasonInput = document.getElementById('overrideReason');
-
-        if (title) title.textContent = `Manual Correction: ${studentName}`;
-        if (statusSelect) statusSelect.value = currentStatus;
-        if (reasonInput) reasonInput.value = '';
-
-        if (modal) modal.classList.add('active');
-    }
-
-    async loadSessions() {
-        try {
-            const res = await fetch('/api/sessions');
-            const data = await res.json();
-            const container = document.getElementById('sessionsListContainer');
-            if (!container) return;
-
-            if (data.status === 'success' && data.sessions && data.sessions.length > 0) {
-                container.innerHTML = '';
-                data.sessions.forEach(s => {
-                    const div = document.createElement('div');
-                    div.className = 'panel-card';
-                    div.style.marginBottom = '1rem';
-                    div.innerHTML = `
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <h3 style="font-size: 1rem; color: #fff;">${s.subject_name}</h3>
-                                <p style="font-size: 0.8rem; color: var(--text-muted);">${s.class_name || 'Classroom'} &bull; ${s.room_number}</p>
-                            </div>
-                            <div>
-                                <span class="status-badge ${s.status === 'ACTIVE' ? 'badge-present' : 'badge-halfday'}">${s.status}</span>
-                            </div>
-                        </div>
-                        <div style="display: flex; gap: 1.5rem; font-size: 0.8rem; color: var(--text-dim); margin-top: 0.85rem;">
-                            <span>🕒 Time: ${s.scheduled_start} - ${s.scheduled_end}</span>
-                            <span>⏱ Grace Period: ${s.grace_period_mins}m</span>
-                            <span>⏳ Late Cutoff: ${s.late_cutoff_mins}m</span>
-                        </div>
-                    `;
-                    container.appendChild(div);
-                });
-            }
-        } catch (err) {
-            console.error('Sessions error:', err);
-        }
-    }
-
     async loadStudents() {
         try {
             const res = await fetch('/api/students');
@@ -780,13 +1003,26 @@ class EnterpriseAttendancePlatform {
             if (data.status === 'success' && data.students) {
                 tbody.innerHTML = '';
                 data.students.forEach(s => {
+                    const initials = (s.full_name || 'ST').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
+                        <td>
+                            <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; color: #fff;">
+                                ${initials}
+                            </div>
+                        </td>
                         <td><strong>${s.student_id}</strong></td>
                         <td>${s.full_name}</td>
-                        <td>${s.department_name || 'Engineering'}</td>
                         <td>${s.class_name || 'B.Tech CSE'}</td>
-                        <td><span class="status-badge ${s.has_biometrics ? 'badge-present' : 'badge-late'}">${s.has_biometrics ? '✓ Enrolled' : 'Pending'}</span></td>
+                        <td>${s.department_name || 'Engineering'}</td>
+                        <td><span class="status-badge ${s.has_biometrics ? 'badge-present' : 'badge-late'}">${s.has_biometrics ? '✓ Registered' : '⚠ Missing'}</span></td>
+                        <td><strong style="color: ${s.attendance_percentage >= 75 ? '#10b981' : '#f59e0b'};">${s.attendance_percentage || 0}%</strong></td>
+                        <td><span class="status-badge badge-present">${s.status || 'Active'}</span></td>
+                        <td>
+                            <button class="btn btn-secondary btn-sm" onclick="document.querySelector('.nav-link[data-tab=\\'tab-face-wizard\\']').click(); document.getElementById('regWizardId').value='${s.student_id}'; document.getElementById('regWizardName').value='${s.full_name}';">
+                                📸 Biometrics
+                            </button>
+                        </td>
                     `;
                     tbody.appendChild(tr);
                 });

@@ -491,33 +491,61 @@ def create_app() -> Flask:
     # -------------------------------------------------------------
     @app.route("/api/attendance/records", methods=["GET"])
     def get_attendance_records():
-        date_filter = request.args.get("date", datetime.datetime.now().strftime("%d-%m-%Y"))
-        conn = Database.get_connection()
-        cursor = conn.cursor()
+        date_param = request.args.get("date")
+        if date_param:
+            if "-" in date_param and len(date_param.split("-")[0]) == 4:  # YYYY-MM-DD
+                p = date_param.split("-")
+                date_filter = f"{p[2]}-{p[1]}-{p[0]}"
+            else:
+                date_filter = date_param
+        else:
+            date_filter = datetime.datetime.now().strftime("%d-%m-%Y")
 
-        cursor.execute("""
-            SELECT ar.*, s.full_name as student_name, c.name as class_name, d.name as department_name, k.name as kiosk_name
-            FROM attendance_records ar
-            JOIN students s ON ar.student_id = s.student_id
-            LEFT JOIN classes c ON s.class_id = c.id
-            LEFT JOIN departments d ON s.department_id = d.id
-            LEFT JOIN kiosks k ON ar.kiosk_id = k.id
-            WHERE ar.date = ?
-            ORDER BY ar.time DESC
-        """, (date_filter,))
-
-        records = [dict(r) for r in cursor.fetchall()]
-        conn.close()
+        class_id = request.args.get("class_id", type=int)
+        records = ExportService.get_complete_attendance_data(date_filter, class_id)
         return jsonify({"status": "success", "date": date_filter, "records": records})
 
     @app.route("/api/attendance/override", methods=["POST"])
     def override_attendance():
         data = request.get_json() or {}
         record_id = int(data.get("record_id", 0))
+        student_id = str(data.get("student_id", "")).strip()
+        date_str = str(data.get("date", datetime.datetime.now().strftime("%d-%m-%Y"))).strip()
         new_status = str(data.get("new_status", "")).upper()
         reason = str(data.get("reason", "")).strip()
 
         user = get_current_user() or {"user_id": 1, "name": "System Administrator"}
+
+        # If record_id is 0 but student_id is provided, create new override record
+        if record_id <= 0 and student_id:
+            conn = Database.get_connection()
+            cursor = conn.cursor()
+            time_str = datetime.datetime.now().strftime("%H:%M:%S")
+            cursor.execute("""
+                INSERT INTO attendance_records (student_id, date, time, status, confidence, liveness_verified, is_manual_override, override_reason, override_by_user_id)
+                VALUES (?, ?, ?, ?, 100.0, 1, 1, ?, ?)
+                ON CONFLICT(student_id, session_id, date) DO UPDATE SET
+                    status = excluded.status,
+                    is_manual_override = 1,
+                    override_reason = excluded.override_reason,
+                    override_by_user_id = excluded.override_by_user_id
+            """, (student_id, date_str, time_str, new_status, reason, user.get("user_id", 1)))
+            record_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+
+            # Log audit
+            Database.log_audit(
+                user_id=user.get("user_id", 1),
+                action="MANUAL_ATTENDANCE_CREATED",
+                entity="attendance_records",
+                entity_id=record_id,
+                old_value="ABSENT",
+                new_value=new_status,
+                reason=reason,
+                ip_address=request.remote_addr or "127.0.0.1"
+            )
+            return jsonify({"status": "success", "message": f"Attendance for {student_id} set to {new_status} (audited)."})
 
         res = AttendanceEngine.manual_override_attendance(
             record_id=record_id,
@@ -545,7 +573,7 @@ def create_app() -> Flask:
         return jsonify({"status": "success", "events": events})
 
     # -------------------------------------------------------------
-    # 8. KIOSKS, STUDENTS, TEACHERS, AUDIT APIS
+    # 8. KIOSKS, STUDENTS, SETTINGS, AUDIT APIS
     # -------------------------------------------------------------
     @app.route("/api/kiosks", methods=["GET"])
     def get_kiosks():
@@ -590,16 +618,54 @@ def create_app() -> Flask:
 
         cursor.execute("""
             SELECT s.*, c.name as class_name, d.name as department_name,
-                   (CASE WHEN bt.id IS NOT NULL THEN 1 ELSE 0 END) as has_biometrics
+                   (CASE WHEN bt.id IS NOT NULL THEN 1 ELSE 0 END) as has_biometrics,
+                   ROUND((COUNT(ar.id) * 100.0 / MAX(1, (SELECT COUNT(DISTINCT date) FROM attendance_records))), 1) as attendance_percentage
             FROM students s
             LEFT JOIN classes c ON s.class_id = c.id
             LEFT JOIN departments d ON s.department_id = d.id
             LEFT JOIN biometric_templates bt ON s.student_id = bt.student_id
+            LEFT JOIN attendance_records ar ON s.student_id = ar.student_id AND ar.status IN ('PRESENT', 'LATE')
+            GROUP BY s.id
             ORDER BY s.id DESC
         """)
         students = [dict(r) for r in cursor.fetchall()]
         conn.close()
         return jsonify({"status": "success", "students": students})
+
+    @app.route("/api/settings", methods=["GET", "POST"])
+    def handle_settings():
+        conn = Database.get_connection()
+        cursor = conn.cursor()
+
+        if request.method == "POST":
+            data = request.get_json() or {}
+            for k, v in data.items():
+                cursor.execute("""
+                    INSERT INTO system_settings (key, value, updated_at)
+                    VALUES (?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+                """, (k, str(v)))
+            conn.commit()
+            conn.close()
+            return jsonify({"status": "success", "message": "Attendance settings updated successfully."})
+
+        cursor.execute("SELECT key, value FROM system_settings")
+        settings_map = {r["key"]: r["value"] for r in cursor.fetchall()}
+        conn.close()
+
+        # Defaults if not present in DB
+        defaults = {
+            "start_time": "09:00",
+            "grace_period_mins": str(Config.DEFAULT_GRACE_PERIOD_MINS),
+            "late_cutoff_mins": str(Config.DEFAULT_LATE_CUTOFF_MINS),
+            "duplicate_cooldown_secs": str(Config.DUPLICATE_RECOGNITION_COOLDOWN_SECS),
+            "confidence_threshold": str(Config.MIN_KIOSK_CONFIDENCE_THRESHOLD),
+            "auto_mark": "1",
+            "liveness_enabled": "1",
+            "manual_fallback_enabled": "1"
+        }
+        defaults.update(settings_map)
+        return jsonify({"status": "success", "settings": defaults})
 
     @app.route("/api/cameras", methods=["GET"])
     def get_cameras():
@@ -637,11 +703,38 @@ def create_app() -> Flask:
         notifs = NotificationService.get_user_notifications(user.get("user_id", 1))
         return jsonify({"status": "success", "notifications": notifs})
 
+    @app.route("/api/reports/export/excel", methods=["GET"])
+    @app.route("/api/reports/export/xlsx", methods=["GET"])
+    def export_excel_report():
+        date_param = request.args.get("date")
+        if date_param and "-" in date_param and len(date_param.split("-")[0]) == 4:
+            p = date_param.split("-")
+            date_filter = f"{p[2]}-{p[1]}-{p[0]}"
+        else:
+            date_filter = date_param or datetime.datetime.now().strftime("%d-%m-%Y")
+
+        class_id = request.args.get("class_id", type=int)
+        class_prefix = f"Class{class_id}_" if class_id else ""
+        excel_bytes = ExportService.generate_attendance_excel(date_filter, class_id)
+        filename = f"Attendance_{class_prefix}{date_filter}.xlsx"
+
+        return Response(
+            excel_bytes,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment;filename={filename}"}
+        )
+
     @app.route("/api/reports/export/csv", methods=["GET"])
     def export_csv_report():
-        date_filter = request.args.get("date")
+        date_param = request.args.get("date")
+        if date_param and "-" in date_param and len(date_param.split("-")[0]) == 4:
+            p = date_param.split("-")
+            date_filter = f"{p[2]}-{p[1]}-{p[0]}"
+        else:
+            date_filter = date_param or datetime.datetime.now().strftime("%d-%m-%Y")
+
         csv_text = ExportService.generate_attendance_csv(date_filter)
-        filename = f"Attendance_Audit_Report_{date_filter or 'ALL'}.csv"
+        filename = f"Attendance_Audit_Report_{date_filter}.csv"
 
         return Response(
             csv_text,

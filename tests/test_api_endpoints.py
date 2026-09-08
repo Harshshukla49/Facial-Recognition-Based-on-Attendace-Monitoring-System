@@ -38,5 +38,18 @@ class TestAPIEndpoints(unittest.TestCase):
         self.assertEqual(res.mimetype, 'text/csv')
         self.assertIn(b'Face Recognition Attendance', res.data)
 
+    def test_export_excel(self):
+        res = self.client.get('/api/reports/export/excel')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.mimetype, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        self.assertTrue(len(res.data) > 1000)
+
+    def test_settings_api(self):
+        res = self.client.get('/api/settings')
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertEqual(data['status'], 'success')
+        self.assertIn('settings', data)
+
 if __name__ == "__main__":
     unittest.main()

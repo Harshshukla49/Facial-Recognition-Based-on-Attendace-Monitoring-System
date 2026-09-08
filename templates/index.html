@@ -26,6 +26,9 @@
             <a class="nav-link active" data-tab="tab-dashboard">
                 <span class="nav-icon">📊</span> Dashboard Overview
             </a>
+            <a class="nav-link" data-tab="tab-attendance">
+                <span class="nav-icon">📅</span> Attendance Records
+            </a>
             <a class="nav-link" data-tab="tab-live-hud">
                 <span class="nav-icon">🎥</span> Live Attendance HUD
             </a>
@@ -47,9 +50,12 @@
                 <span class="nav-icon">📹</span> Camera Network
             </a>
 
-            <div class="menu-category">Intelligence & Audit</div>
+            <div class="menu-category">Intelligence & Config</div>
             <a class="nav-link" data-tab="tab-analytics">
                 <span class="nav-icon">📈</span> Attendance Analytics
+            </a>
+            <a class="nav-link" data-tab="tab-settings">
+                <span class="nav-icon">⚙️</span> Attendance Settings
             </a>
             <a class="nav-link" data-tab="tab-audit-logs">
                 <span class="nav-icon">🛡</span> Security Audit Logs
@@ -210,6 +216,72 @@
                         </div>
                     </div>
 
+            <!-- TAB: ATTENDANCE MANAGEMENT (DATE-BASED & EXCEL EXPORT) -->
+            <div id="tab-attendance" class="tab-pane">
+                <div class="panel-card">
+                    <div class="panel-header" style="flex-wrap: wrap; gap: 1rem;">
+                        <div>
+                            <h2><span>📅</span> Attendance Management & Audit Records</h2>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
+                                Select any date to view official attendance from database. Compares all registered students to show Present, Absent, and Late.
+                            </p>
+                        </div>
+                        <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <label style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">📅 Date:</label>
+                                <input type="date" id="attendanceDatePicker" class="form-control" style="width: auto; padding: 0.4rem 0.75rem;">
+                            </div>
+                            <button id="btnExportExcelMain" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                                📊 Download Excel (.xlsx)
+                            </button>
+                            <button id="btnExportCSVMain" class="btn btn-secondary btn-sm">
+                                📥 Export CSV
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filter Controls & Search -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.25rem; background: rgba(255,255,255,0.02); padding: 0.85rem 1rem; border-radius: 12px; border: 1px solid var(--border-subtle);">
+                        <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                            <span style="font-size: 0.82rem; color: var(--text-muted); margin-right: 0.25rem;">Filter:</span>
+                            <button class="btn btn-secondary btn-sm filter-status-btn active" data-filter="ALL">All</button>
+                            <button class="btn btn-secondary btn-sm filter-status-btn" data-filter="PRESENT" style="color: #10b981;">✓ Present</button>
+                            <button class="btn btn-secondary btn-sm filter-status-btn" data-filter="LATE" style="color: #f59e0b;">⏰ Late</button>
+                            <button class="btn btn-secondary btn-sm filter-status-btn" data-filter="ABSENT" style="color: #ef4444;">✕ Absent</button>
+                            <button class="btn btn-secondary btn-sm filter-status-btn" data-filter="EXCUSED" style="color: #3b82f6;">Leave</button>
+                        </div>
+
+                        <div style="display: flex; gap: 0.75rem; align-items: center; flex: 1; max-width: 400px;">
+                            <input type="text" id="searchAttendanceInput" class="form-control" placeholder="🔍 Search student name, ID..." style="padding: 0.4rem 0.85rem;">
+                        </div>
+                    </div>
+
+                    <!-- Attendance Table -->
+                    <div class="table-responsive">
+                        <table class="table-saas">
+                            <thead>
+                                <tr>
+                                    <th>Avatar</th>
+                                    <th>Student ID</th>
+                                    <th>Student Name</th>
+                                    <th>Class</th>
+                                    <th>Department</th>
+                                    <th>Date</th>
+                                    <th>Entry Time</th>
+                                    <th>Exit Time</th>
+                                    <th>Status</th>
+                                    <th>Method</th>
+                                    <th>Confidence</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendanceRecordsBody">
+                                <tr>
+                                    <td colspan="12" style="text-align: center; color: var(--text-dim); padding: 2.5rem;">Loading attendance roster...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
@@ -346,19 +418,29 @@
                     <div class="panel-header">
                         <h2><span>👥</span> Registered Students Directory</h2>
                     </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem; flex-wrap: wrap;">
+                        <input type="text" id="searchStudentsInput" class="form-control" placeholder="🔍 Search by student name, ID..." style="max-width: 350px;">
+                        <button class="btn btn-primary btn-sm" onclick="document.querySelector('.nav-link[data-tab=\'tab-face-wizard\']').click()">
+                            + Register New Student Face
+                        </button>
+                    </div>
                     <div class="table-responsive">
                         <table class="table-saas">
                             <thead>
                                 <tr>
+                                    <th>Avatar</th>
                                     <th>Student ID</th>
-                                    <th>Full Name</th>
+                                    <th>Student Name</th>
+                                    <th>Class</th>
                                     <th>Department</th>
-                                    <th>Class / Batch</th>
                                     <th>Biometric Status</th>
+                                    <th>Attendance %</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody id="studentsDirectoryBody">
-                                <tr><td colspan="5" style="text-align: center; color: var(--text-dim); padding: 2rem;">Loading students directory...</td></tr>
+                                <tr><td colspan="9" style="text-align: center; color: var(--text-dim); padding: 2rem;">Loading students directory...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -400,6 +482,65 @@
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+
+            <!-- TAB: ATTENDANCE SETTINGS -->
+            <div id="tab-settings" class="tab-pane">
+                <div class="panel-card" style="max-width: 800px;">
+                    <div class="panel-header">
+                        <h2><span>⚙️</span> Institutional Attendance & AI Recognition Policy Settings</h2>
+                    </div>
+                    <form id="formAttendanceSettings">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                            <div class="form-group">
+                                <label class="form-label">Attendance Start Time</label>
+                                <input type="time" id="settingStartTime" class="form-control" value="09:00">
+                                <small style="color: var(--text-muted); font-size: 0.75rem;">Official timetable lecture start time</small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Grace Period (Minutes)</label>
+                                <input type="number" id="settingGracePeriod" class="form-control" value="10" min="0" max="60">
+                                <small style="color: var(--text-muted); font-size: 0.75rem;">Students marked On-Time during this window</small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Late Cutoff Threshold (Minutes)</label>
+                                <input type="number" id="settingLateCutoff" class="form-control" value="30" min="0" max="120">
+                                <small style="color: var(--text-muted); font-size: 0.75rem;">Arrivals after this are marked Half-Day</small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Duplicate Scan Cooldown (Seconds)</label>
+                                <input type="number" id="settingCooldown" class="form-control" value="300" min="30" max="3600">
+                                <small style="color: var(--text-muted); font-size: 0.75rem;">Prevents duplicate recognition logs within window</small>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Face Recognition Threshold (%)</label>
+                                <input type="number" id="settingThreshold" class="form-control" value="85.0" min="50" max="99" step="0.5">
+                                <small style="color: var(--text-muted); font-size: 0.75rem;">Minimum confidence required for auto-mark (Default 85%)</small>
+                            </div>
+                        </div>
+
+                        <div style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 0.85rem; background: rgba(255,255,255,0.03); padding: 1.25rem; border-radius: 12px; border: 1px solid var(--border-subtle);">
+                            <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
+                                <input type="checkbox" id="settingAutoMark" checked style="width: 18px; height: 18px; accent-color: #3b82f6;">
+                                <span><strong>Auto Mark Attendance:</strong> Automatically record database attendance upon high-confidence face match</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
+                                <input type="checkbox" id="settingLiveness" checked style="width: 18px; height: 18px; accent-color: #3b82f6;">
+                                <span><strong>Liveness & Anti-Spoofing Verification:</strong> Reject photo prints, screenshots, and phone screens</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer;">
+                                <input type="checkbox" id="settingManualFallback" checked style="width: 18px; height: 18px; accent-color: #3b82f6;">
+                                <span><strong>Allow Audited Manual Corrections:</strong> Enable teacher manual overrides with required reason</span>
+                            </label>
+                        </div>
+
+                        <div style="display: flex; justify-content: flex-end; margin-top: 1.5rem;">
+                            <button type="submit" class="btn btn-primary">
+                                💾 Save Attendance Policy Settings
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
 
@@ -481,6 +622,67 @@
                     <button type="submit" class="btn btn-primary">Save Audited Correction</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- 4B. MODAL: STUDENT ATTENDANCE & BIOMETRIC DETAILS -->
+    <div id="modalStudentDetail" class="modal-backdrop">
+        <div class="modal-card" style="max-width: 550px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.25rem;">
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <div id="detailAvatar" style="width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #8b5cf6); display: flex; align-items: center; justify-content: center; font-size: 1.3rem; font-weight: 700; color: #fff;">
+                        ST
+                    </div>
+                    <div>
+                        <h3 id="detailStudentName" style="font-size: 1.15rem; font-weight: 700; color: #fff;">Student Name</h3>
+                        <p id="detailStudentID" style="font-size: 0.85rem; color: #3b82f6; font-weight: 600;">ID: CSE202501</p>
+                    </div>
+                </div>
+                <span id="detailStatusBadge" class="status-badge badge-present">PRESENT</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; font-size: 0.85rem; background: rgba(255,255,255,0.02); padding: 1rem; border-radius: 10px; border: 1px solid var(--border-subtle); margin-bottom: 1.25rem;">
+                <div>
+                    <span style="color: var(--text-muted);">Class / Section:</span>
+                    <p id="detailClass" style="font-weight: 600; margin-top: 2px;">CSE-A</p>
+                </div>
+                <div>
+                    <span style="color: var(--text-muted);">Department:</span>
+                    <p id="detailDept" style="font-weight: 600; margin-top: 2px;">Computer Science</p>
+                </div>
+                <div>
+                    <span style="color: var(--text-muted);">Date:</span>
+                    <p id="detailDate" style="font-weight: 600; margin-top: 2px;">08-09-2026</p>
+                </div>
+                <div>
+                    <span style="color: var(--text-muted);">Entry Time:</span>
+                    <p id="detailEntryTime" style="font-weight: 600; margin-top: 2px;">09:04:23 AM</p>
+                </div>
+                <div>
+                    <span style="color: var(--text-muted);">Attendance Method:</span>
+                    <p id="detailMethod" style="font-weight: 600; margin-top: 2px; color: #10b981;">Facial Recognition</p>
+                </div>
+                <div>
+                    <span style="color: var(--text-muted);">Match Confidence:</span>
+                    <p id="detailConfidence" style="font-weight: 600; margin-top: 2px;">97.4%</p>
+                </div>
+                <div>
+                    <span style="color: var(--text-muted);">Liveness Check:</span>
+                    <p id="detailLiveness" style="font-weight: 600; margin-top: 2px; color: #10b981;">Verified ✓</p>
+                </div>
+                <div>
+                    <span style="color: var(--text-muted);">Kiosk / Gate:</span>
+                    <p id="detailKiosk" style="font-weight: 600; margin-top: 2px;">Kiosk 01 — Main Gate</p>
+                </div>
+            </div>
+
+            <div id="detailOverrideContainer" style="display: none; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.25); border-radius: 8px; padding: 0.75rem; font-size: 0.82rem; margin-bottom: 1.25rem;">
+                <strong style="color: #f59e0b;">Audit Note:</strong> <span id="detailOverrideReason"></span>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('modalStudentDetail').classList.remove('active')">Close</button>
+            </div>
         </div>
     </div>
 
