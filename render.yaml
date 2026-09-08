@@ -1,8 +1,29 @@
 services:
   - type: web
-    name: face-recognition-attendance
+    name: visionattend-ai
     env: python
     rootDir: .
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    plan: free
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 4 app:app
     autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: BIOMETRIC_MASTER_KEY
+        generateValue: true
+      - key: FACE_MATCH_THRESHOLD
+        value: "0.62"
+      - key: MIN_KIOSK_CONFIDENCE_THRESHOLD
+        value: "85.0"
+      - key: DUPLICATE_FACE_SIMILARITY_THRESHOLD
+        value: "0.78"
+      - key: LIVENESS_BLUR_THRESHOLD
+        value: "85.0"
+

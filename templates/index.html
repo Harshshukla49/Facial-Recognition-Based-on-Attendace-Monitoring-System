@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Facial Recognition Attendance Monitoring Platform</title>
+    <link rel="stylesheet" href="/static/css/enterprise.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- 1. SIDEBAR NAVIGATION -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-badge">📸</div>
+            <div class="brand-titles">
+                <h2>VisionAttend AI</h2>
+                <p>Enterprise SaaS</p>
+            </div>
+        </div>
+
+        <nav class="sidebar-menu">
+            <div class="menu-category">Operations</div>
+            <a class="nav-link active" data-tab="tab-dashboard">
+                <span class="nav-icon">📊</span> Dashboard Overview
+            </a>
+            <a class="nav-link" data-tab="tab-live-hud">
+                <span class="nav-icon">🎥</span> Live Attendance HUD
+            </a>
+            <a href="/kiosk" target="_blank" class="nav-link" style="color: #3b82f6; font-weight: 600;">
+                <span class="nav-icon">🖥️</span> Autonomous Kiosk Mode
+            </a>
+            <a class="nav-link" data-tab="tab-sessions">
+                <span class="nav-icon">⏱</span> Lecture Sessions
+            </a>
+
+            <div class="menu-category">Biometrics & Roster</div>
+            <a class="nav-link" data-tab="tab-face-wizard">
+                <span class="nav-icon">👤</span> Face Registration Wizard
+            </a>
+            <a class="nav-link" data-tab="tab-students-list">
+                <span class="nav-icon">👥</span> Students Directory
+            </a>
+            <a class="nav-link" data-tab="tab-cameras-grid">
+                <span class="nav-icon">📹</span> Camera Network
+            </a>
+
+            <div class="menu-category">Intelligence & Audit</div>
+            <a class="nav-link" data-tab="tab-analytics">
+                <span class="nav-icon">📈</span> Attendance Analytics
+            </a>
+            <a class="nav-link" data-tab="tab-audit-logs">
+                <span class="nav-icon">🛡</span> Security Audit Logs
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-profile-widget">
+                <div class="user-avatar">AD</div>
+                <div class="user-meta">
+                    <h4>Administrator</h4>
+                    <p>Admin Role</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 2. MAIN APPLICATION WORKSPACE -->
+    <main class="app-main">
+
+        <!-- Header Topbar -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <div class="page-title">
+                    <h1>Attendance Monitoring System</h1>
+                </div>
+                <div class="system-status-badge">
+                    <span class="pulse-dot"></span>
+                    <span>Liveness & AI Engine Active</span>
+                </div>
+            </div>
+
+            <div class="topbar-right">
+                <div class="live-clock-pill">
+                    <span id="liveDateDisplay">Loading...</span>
+                    <span style="color: var(--brand-primary); font-weight: 700;">🕒 <span id="liveClockDisplay">00:00:00</span></span>
+                </div>
+
+                <button id="btnToggleAssistant" class="btn-ai-assistant">
+                    <span>✨</span> AI Assistant
+                </button>
+            </div>
+        </header>
+
+        <!-- Dynamic Content Body -->
+        <div class="content-wrapper">
+
+            <!-- Top Level KPIs (Visible across views) -->
+            <section class="metrics-row">
+                <div class="kpi-card">
+                    <div class="kpi-details">
+                        <h3>Enrolled Students</h3>
+                        <p id="kpiTotalStudents">0</p>
+                        <span>Active Roster</span>
+                    </div>
+                    <div class="kpi-icon icon-blue">👥</div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-details">
+                        <h3>Present Today</h3>
+                        <p id="kpiPresentToday" style="color: var(--success);">0</p>
+                        <span>On-time attendance</span>
+                    </div>
+                    <div class="kpi-icon icon-green">✅</div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-details">
+                        <h3>Late Arrivals</h3>
+                        <p id="kpiLateToday" style="color: var(--warning);">0</p>
+                        <span>Grace period exceeded</span>
+                    </div>
+                    <div class="kpi-icon icon-amber">⏰</div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-details">
+                        <h3>Today's Attendance Rate</h3>
+                        <p id="kpiAttendanceRate">0%</p>
+                        <span>Overall Campus</span>
+                    </div>
+                    <div class="kpi-icon icon-purple">📈</div>
+                </div>
+            </section>
+
+            <!-- TAB 1: DASHBOARD OVERVIEW -->
+            <div id="tab-dashboard" class="tab-pane active">
+                <div class="kiosk-grid">
+                    
+                    <!-- Left: Quick Today Feed -->
+                    <div class="panel-card">
+                        <div class="panel-header">
+                            <h2><span>📝</span> Today's Attendance Feed</h2>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <a href="/api/reports/export/csv" class="btn btn-secondary btn-sm" download>
+                                    📥 Export Audit CSV
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 0.85rem;">
+                            <input type="text" id="searchTodayTable" class="form-control" placeholder="🔍 Filter by student ID or name...">
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="table-saas">
+                                <thead>
+                                    <tr>
+                                        <th>Student ID</th>
+                                        <th>Full Name</th>
+                                        <th>Class</th>
+                                        <th>Status</th>
+                                        <th>Time</th>
+                                        <th>Confidence</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="todayTableBody">
+                                    <tr>
+                                        <td colspan="7" style="text-align: center; color: var(--text-dim); padding: 2rem;">Loading today's attendance logs...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Right: Active Lectures & Cameras Overview -->
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                        <div class="panel-card">
+                            <div class="panel-header">
+                                <h2><span>⏱</span> Active Timetable Sessions</h2>
+                                <button id="btnOpenStartSession" class="btn btn-primary btn-sm">+ Start Session</button>
+                            </div>
+                            <div id="sessionsListContainer">
+                                <p style="font-size: 0.85rem; color: var(--text-dim);">Loading active sessions...</p>
+                            </div>
+                        </div>
+
+                        <div class="panel-card">
+                            <div class="panel-header">
+                                <h2><span>🛡</span> Biometric Security Status</h2>
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.85rem;">
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-muted);">Encrypted Biometric Templates:</span>
+                                    <strong id="kpiBiometrics" style="color: #3b82f6;">0</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-muted);">Active Camera Nodes:</span>
+                                    <strong id="kpiOnlineCameras" style="color: #10b981;">0</strong>
+                                </div>
+                                <div style="display: flex; justify-content: space-between;">
+                                    <span style="color: var(--text-muted);">Anti-Spoofing Protection:</span>
+                                    <strong style="color: #10b981;">Active (Multi-Metric)</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TAB 2: LIVE ATTENDANCE HUD -->
+            <div id="tab-live-hud" class="tab-pane">
+                <div class="kiosk-grid">
+                    
+                    <!-- Left: Camera HUD -->
+                    <div class="panel-card">
+                        <div class="panel-header">
+                            <h2><span>🎥</span> Real-Time Multi-Face Recognition HUD</h2>
+                            <span class="status-badge badge-present">● Live Stream Online</span>
+                        </div>
+
+                        <div class="camera-container">
+                            <video id="hudCameraVideo" class="camera-video" autoplay playsinline muted></video>
+                            <canvas id="hudCameraCanvas" class="camera-canvas"></canvas>
+
+                            <div class="hud-overlay-top">
+                                <div class="hud-pill">
+                                    <span class="pulse-dot"></span>
+                                    <span>Main Kiosk Camera</span>
+                                </div>
+                                <div class="hud-pill">
+                                    <span>🛡 Anti-Spoof Liveness ON</span>
+                                </div>
+                            </div>
+
+                            <div id="hudRecognitionBanner" class="hud-recognition-banner">
+                                <span class="pulse-dot"></span> Live Face Recognition & Liveness Active
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: HUD Quick Logs -->
+                    <div class="panel-card">
+                        <div class="panel-header">
+                            <h2><span>⚡</span> Real-Time Recognition Log</h2>
+                        </div>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+                            Identified students are automatically checked against lecture timetable rules, grace periods, and recorded with anti-spoof verification.
+                        </p>
+                        <div class="table-responsive">
+                            <table class="table-saas">
+                                <thead>
+                                    <tr>
+                                        <th>Student ID</th>
+                                        <th>Name</th>
+                                        <th>Status</th>
+                                        <th>Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="hudLiveLogsBody">
+                                    <tr>
+                                        <td colspan="4" style="text-align: center; color: var(--text-dim); padding: 2rem;">Camera active. Stand in front of camera to mark attendance.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TAB 3: STEP-BY-STEP FACE REGISTRATION WIZARD -->
+            <div id="tab-face-wizard" class="tab-pane">
+                <div class="kiosk-grid">
+                    
+                    <!-- Left: Wizard Form -->
+                    <div class="panel-card">
+                        <div class="panel-header">
+                            <h2><span>👤</span> Multi-Angle Biometric Enrollment Wizard</h2>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Student Roll No / ID</label>
+                            <input type="text" id="regWizardId" class="form-control" placeholder="e.g. 51230260" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" id="regWizardName" class="form-control" placeholder="e.g. Alex Henderson" required>
+                        </div>
+
+                        <div style="background: rgba(255,255,255,0.04); border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem;">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 0.5rem;">
+                                <span>Multi-Angle Capture Progress</span>
+                                <span id="wizardProgressCount">4 Angles (Frontal, Left, Right, Expression)</span>
+                            </div>
+                            <div style="background: rgba(255,255,255,0.1); border-radius: 20px; height: 10px; overflow: hidden;">
+                                <div id="wizardProgressBar" style="width: 0%; height: 100%; background: var(--brand-gradient); transition: width 0.3s;"></div>
+                            </div>
+                        </div>
+
+                        <p id="wizardStatusText" style="font-size: 0.85rem; color: #a855f7; margin-bottom: 1.5rem;">
+                            Align student face inside camera preview and click below to initiate automated 4-angle capture.
+                        </p>
+
+                        <button type="button" id="btnStartRegWizard" class="btn btn-primary" style="width: 100%;">
+                            🚀 Start Multi-Angle Capture Wizard
+                        </button>
+                    </div>
+
+                    <!-- Right: Wizard Camera Preview -->
+                    <div class="panel-card">
+                        <div class="panel-header">
+                            <h2><span>🎯</span> Face Alignment Preview</h2>
+                        </div>
+                        <div class="camera-container">
+                            <video id="regVideo" class="camera-video" autoplay playsinline muted></video>
+                            <canvas id="regCanvas" class="camera-canvas"></canvas>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TAB 4: LECTURE SESSIONS -->
+            <div id="tab-sessions" class="tab-pane">
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <h2><span>⏱</span> Timetable & Lecture Session Management</h2>
+                        <button class="btn btn-primary btn-sm" onclick="document.getElementById('modalStartSession').classList.add('active')">+ Create Session</button>
+                    </div>
+                    <div id="sessionsFullContainer">
+                        <p style="font-size: 0.88rem; color: var(--text-dim);">Manage classroom lecture timings, grace periods, and late thresholds.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 5: STUDENTS DIRECTORY -->
+            <div id="tab-students-list" class="tab-pane">
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <h2><span>👥</span> Registered Students Directory</h2>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table-saas">
+                            <thead>
+                                <tr>
+                                    <th>Student ID</th>
+                                    <th>Full Name</th>
+                                    <th>Department</th>
+                                    <th>Class / Batch</th>
+                                    <th>Biometric Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="studentsDirectoryBody">
+                                <tr><td colspan="5" style="text-align: center; color: var(--text-dim); padding: 2rem;">Loading students directory...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 6: CAMERA NETWORK -->
+            <div id="tab-cameras-grid" class="tab-pane">
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <h2><span>📹</span> Multi-Camera Campus Network</h2>
+                    </div>
+                    <div id="camerasGridContainer" class="metrics-row">
+                        <p style="color: var(--text-dim);">Loading connected cameras...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 7: ATTENDANCE ANALYTICS -->
+            <div id="tab-analytics" class="tab-pane">
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <h2><span>⚠️</span> Low Attendance Risk Alert (< 75% Mandatory Threshold)</h2>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table-saas">
+                            <thead>
+                                <tr>
+                                    <th>Student ID</th>
+                                    <th>Student Name</th>
+                                    <th>Class</th>
+                                    <th>Cumulative Attendance</th>
+                                    <th>Days Attended</th>
+                                    <th>Action Required</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lowAttendanceTableBody">
+                                <tr><td colspan="6" style="text-align: center; color: var(--text-dim); padding: 2rem;">Loading analytics...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 8: AUDIT LOGS -->
+            <div id="tab-audit-logs" class="tab-pane">
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <h2><span>🛡</span> Immutable Security & Compliance Audit Log</h2>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table-saas">
+                            <thead>
+                                <tr>
+                                    <th>Action</th>
+                                    <th>Performed By</th>
+                                    <th>Target Entity</th>
+                                    <th>Change Summary</th>
+                                    <th>Timestamp</th>
+                                </tr>
+                            </thead>
+                            <tbody id="auditLogsBody">
+                                <tr><td colspan="5" style="text-align: center; color: var(--text-dim); padding: 2rem;">Loading audit trail...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- 3. GROUNDED AI ATTENDANCE ASSISTANT CHAT DRAWER -->
+    <div id="aiAssistantDrawer" class="assistant-drawer">
+        <div class="assistant-header">
+            <h3><span>✨</span> AI Attendance Assistant</h3>
+            <button id="btnCloseAssistant" class="btn btn-secondary btn-sm">&times;</button>
+        </div>
+
+        <div id="assistantMessages" class="assistant-messages">
+            <div class="chat-bubble bubble-ai">
+                Hello! I am your AI Attendance Intelligence Assistant. Ask me any real-time factual question about today's attendance, absentees, late arrivals, or students at risk.
+            </div>
+        </div>
+
+        <div class="assistant-quick-prompts">
+            <button class="prompt-chip" data-prompt="Who is absent today?">Who is absent today?</button>
+            <button class="prompt-chip" data-prompt="Who came late today?">Who came late today?</button>
+            <button class="prompt-chip" data-prompt="Show students below 75% attendance">Show students below 75%</button>
+            <button class="prompt-chip" data-prompt="What is today's attendance summary?">Today's Summary</button>
+        </div>
+
+        <form id="formAssistantChat" class="assistant-input-area">
+            <input type="text" id="assistantInput" class="form-control" placeholder="Ask a question..." style="padding: 0.5rem 0.85rem;">
+            <button type="submit" class="btn btn-primary btn-sm">Send</button>
+        </form>
+    </div>
+
+    <!-- 4. MODAL: AUDITED MANUAL ATTENDANCE OVERRIDE -->
+    <div id="modalOverride" class="modal-backdrop">
+        <div class="modal-card">
+            <h3 id="overrideStudentTitle" style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;">Manual Correction</h3>
+            <form id="formOverrideAttendance">
+                <div class="form-group">
+                    <label class="form-label">New Attendance Status</label>
+                    <select id="overrideStatus" class="form-control">
+                        <option value="PRESENT">PRESENT</option>
+                        <option value="LATE">LATE</option>
+                        <option value="HALF_DAY">HALF DAY</option>
+                        <option value="EXCUSED">EXCUSED</option>
+                        <option value="ABSENT">ABSENT</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Mandatory Correction Reason (Audited)</label>
+                    <textarea id="overrideReason" class="form-control" rows="3" placeholder="e.g. Medical leave slip verified or biometric camera lighting issue" required></textarea>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                    <button type="button" id="btnCancelOverride" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Audited Correction</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 5. MODAL: START SESSION -->
+    <div id="modalStartSession" class="modal-backdrop">
+        <div class="modal-card">
+            <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;">Start Lecture Attendance Session</h3>
+            <form id="formStartSession">
+                <div class="form-group">
+                    <label class="form-label">Subject / Lecture Name</label>
+                    <input type="text" id="sessionSubject" class="form-control" placeholder="e.g. Deep Learning & Neural Networks" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Room / Lab Number</label>
+                    <input type="text" id="sessionRoom" class="form-control" placeholder="e.g. Lab 02" required>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div class="form-group">
+                        <label class="form-label">Grace Period (Mins)</label>
+                        <input type="number" id="sessionGrace" class="form-control" value="10">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Late Cutoff (Mins)</label>
+                        <input type="number" id="sessionLateCutoff" class="form-control" value="30">
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+                    <button type="button" id="btnCancelSession" class="btn btn-secondary">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Start Session</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Area -->
+    <div id="toastNotificationArea" style="position: fixed; bottom: 24px; left: 24px; z-index: 3000;"></div>
+
+    <script src="/static/js/enterprise-app.js"></script>
+</body>
+</html>

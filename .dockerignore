@@ -1,0 +1,15 @@
+﻿.git
+.gitignore
+.venv
+venv
+ENV
+env
+__pycache__
+*.pyc
+*.pyo
+.vscode
+.idea
+*.log
+attendance_enterprise.db
+Attendance/*.csv
+Reports/*.csv

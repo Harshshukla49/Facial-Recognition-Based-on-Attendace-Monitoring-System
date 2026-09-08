@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VisionAttend AI - Autonomous Attendance Kiosk</title>
+    <link rel="stylesheet" href="/static/css/kiosk.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <!-- Kiosk Header -->
+    <header class="kiosk-header">
+        <div class="kiosk-brand">
+            <div class="kiosk-badge">📸</div>
+            <div>
+                <h1>VisionAttend AI &bull; Kiosk 01</h1>
+                <p>Main Campus Entrance Kiosk</p>
+            </div>
+        </div>
+
+        <div class="kiosk-clock-box">
+            <div style="font-size: 0.95rem; color: #9ca3af;" id="kioskDate">Loading date...</div>
+            <div style="font-size: 1.25rem; font-weight: 800; color: var(--brand-blue);" id="kioskClock">00:00:00 AM</div>
+        </div>
+
+        <div>
+            <a href="/" style="color: #9ca3af; text-decoration: none; font-size: 0.85rem; background: rgba(255,255,255,0.06); padding: 0.5rem 1rem; border-radius: 8px; border: 1px solid var(--border-kiosk);">
+                ⚙️ Admin Dashboard
+            </a>
+        </div>
+    </header>
+
+    <!-- Main Viewfinder & Status Card Grid -->
+    <main class="kiosk-main-grid">
+
+        <!-- Left: Camera Viewfinder with Scanning Reticle -->
+        <div class="kiosk-camera-card">
+            <video id="kioskVideo" class="kiosk-video" autoplay playsinline muted></video>
+            <canvas id="kioskCanvas" class="kiosk-canvas"></canvas>
+
+            <!-- Holographic Center Target Reticle -->
+            <div class="kiosk-hud-target">
+                <div style="width: 12px; height: 12px; background: rgba(59, 130, 246, 0.6); border-radius: 50%;"></div>
+            </div>
+        </div>
+
+        <!-- Right: Real-time Feedback Status Card -->
+        <div class="kiosk-feedback-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-kiosk); padding-bottom: 1rem;">
+                <span style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--brand-blue);">Autonomous Recognition Engine</span>
+                <span style="font-size: 0.75rem; color: #10b981; background: rgba(16,185,129,0.15); padding: 0.2rem 0.6rem; border-radius: 20px;">🛡 Anti-Spoof Active</span>
+            </div>
+
+            <!-- Dynamic State Card -->
+            <div id="kioskFeedbackCard" class="feedback-card state-idle">
+                <div id="feedbackIcon" class="feedback-icon">👀</div>
+                <h2 id="feedbackTitle" class="feedback-title">LOOK AT THE CAMERA</h2>
+                <p id="feedbackSubtitle" class="feedback-subtitle">
+                    Stand within the scanning frame. Your face will be automatically recognized and marked.
+                </p>
+                <div id="feedbackBadge" class="feedback-badge badge-already-kiosk">
+                    ● SYSTEM READY
+                </div>
+            </div>
+
+            <!-- Bottom Information -->
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #6b7280; border-top: 1px solid var(--border-kiosk); padding-top: 1rem;">
+                <span>Session: Artificial Intelligence (Lab 02)</span>
+                <span>Threshold: 85% Confidence &bull; Grace: 10m</span>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Recent Recognition Ticker Footer -->
+    <footer class="kiosk-footer-ticker">
+        <span class="ticker-label">Live Event Stream:</span>
+        <div id="kioskTickerContainer" class="ticker-items">
+            <span class="ticker-chip">Kiosk scanning active...</span>
+        </div>
+    </footer>
+
+    <script src="/static/js/kiosk-app.js"></script>
+</body>
+</html>

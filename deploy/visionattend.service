@@ -1,0 +1,16 @@
+﻿[Unit]
+Description=VisionAttend AI Production Gunicorn Service
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/visionattend
+Environment="PATH=/var/www/visionattend/venv/bin"
+EnvironmentFile=/var/www/visionattend/.env
+ExecStart=/var/www/visionattend/venv/bin/gunicorn --bind 127.0.0.1:5000 --workers 3 --threads 4 --timeout 120 app:app
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

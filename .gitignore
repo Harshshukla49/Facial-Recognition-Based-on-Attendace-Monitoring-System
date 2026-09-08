@@ -43,4 +43,9 @@ Thumbs.db
 *.lnk
 TrainingImageLabel/*.yml
 Attendance/*.csv
+Reports/*.csv
+AuditLogs/*
+*.db
+attendance_enterprise.db
 CNAME
+
